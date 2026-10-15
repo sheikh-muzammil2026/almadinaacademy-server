@@ -1,4 +1,5 @@
 const express = require("express");
+const { ObjectId } = require("mongodb");
 
 function teacherRoutes(collections) {
   const router = express.Router();
@@ -227,6 +228,122 @@ function teacherRoutes(collections) {
 
   router.get("/api/faculty", getPublicFacultyHandler);
   router.get("/api/teachers", getPublicFacultyHandler);
+
+  /**
+   * GET /api/admin/teachers
+   * Fetch all teachers from MongoDB 'teachers' collection
+   */
+  router.get("/api/admin/teachers", async (req, res) => {
+    try {
+      const search = (req.query.search || "").trim();
+
+      const query = {};
+      if (search) {
+        const searchRegex = new RegExp(search, "i");
+        query.$or = [
+          { fullName: searchRegex },
+          { name: searchRegex },
+          { designation: searchRegex },
+          { email: searchRegex },
+          { phone: searchRegex },
+          { mobile: searchRegex },
+          { teacherId: searchRegex },
+        ];
+      }
+
+      const rawTeachers = await teachersCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      const teachers = rawTeachers.map((t, index) => {
+        const idStr = t._id ? t._id.toString() : `t-${index + 1}`;
+        const fallbackIdNo = `ID NO-AIM ${String(index + 1).padStart(3, "0")}`;
+
+        return {
+          _id: idStr,
+          id: idStr,
+          fullName: t.fullName || t.name || "নামহীন শিক্ষক",
+          designation: t.designation || "শিক্ষক",
+          dateOfBirth: t.dateOfBirth || t.dob || "",
+          phone: t.phone || t.mobile || "",
+          bloodGroup: t.bloodGroup || t.blood || "",
+          teacherId: t.teacherId || t.idNo || fallbackIdNo,
+          email: t.email || "",
+          profileImage: t.profileImage || t.image || t.photo || "",
+          address: t.address || "",
+          bio: t.bio || "",
+          academic: t.academic || [],
+          experience: t.experience || [],
+          createdAt: t.createdAt,
+        };
+      });
+
+      res.status(200).json({
+        success: true,
+        data: teachers,
+        total: teachers.length,
+      });
+    } catch (error) {
+      console.error("GET /api/admin/teachers error:", error);
+      res.status(500).json({
+        success: false,
+        message: "শিক্ষকদের তালিকা লোড করতে সমস্যা হয়েছে।",
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * PATCH /api/admin/teachers
+   * Update a teacher's ID card details in MongoDB
+   */
+  router.patch("/api/admin/teachers", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const { id, _id, ...updateFields } = body;
+      const targetId = id || _id;
+
+      if (!targetId) {
+        return res.status(400).json({
+          success: false,
+          message: "শিক্ষকের আইডি দেওয়া হয়নি।",
+        });
+      }
+
+      let filter = {};
+      if (ObjectId.isValid(targetId)) {
+        try {
+          filter = { $or: [{ _id: new ObjectId(targetId) }, { _id: String(targetId) }] };
+        } catch {
+          filter = { _id: String(targetId) };
+        }
+      } else {
+        filter = { _id: targetId };
+      }
+
+      delete updateFields._id;
+      delete updateFields.id;
+      updateFields.updatedAt = new Date().toISOString();
+
+      const result = await teachersCollection.updateOne(filter, {
+        $set: updateFields,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "শিক্ষকের তথ্য সফলভাবে সংরক্ষণ করা হয়েছে।",
+        modifiedCount: result.modifiedCount,
+      });
+    } catch (error) {
+      console.error("PATCH /api/admin/teachers error:", error);
+      res.status(500).json({
+        success: false,
+        message: "তথ্য সংরক্ষণ করতে সমস্যা হয়েছে।",
+        error: error.message,
+      });
+    }
+  });
 
   return router;
 }

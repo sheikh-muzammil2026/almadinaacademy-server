@@ -357,6 +357,82 @@ function userRoutes(collections, helpers) {
     }
   });
 
+  /**
+   * ৫. কারেন্ট ইউজার ডাটা (GET /api/user/me)
+   */
+  router.get("/api/user/me", async (req, res) => {
+    try {
+      const email =
+        req.headers["x-user-email"] ||
+        req.query.email ||
+        req.query.userEmail;
+
+      const userId =
+        req.headers["x-user-id"] ||
+        req.query.id ||
+        req.query.userId;
+
+      if (!email && !userId) {
+        return res.status(401).json({
+          success: false,
+          message: "অনুমতি নেই। ইউজার আইডেন্টিটি পাওয়া যায়নি।",
+        });
+      }
+
+      const queryList = [];
+      if (userId) {
+        if (ObjectId.isValid(userId)) {
+          queryList.push({ _id: new ObjectId(userId) });
+        }
+        queryList.push({ _id: String(userId) }, { id: String(userId) });
+      }
+      if (email) {
+        queryList.push({
+          email: { $regex: new RegExp(`^${String(email).trim()}$`, "i") },
+        });
+      }
+
+      const filter = { $or: queryList };
+      const user = await usersCollection.findOne(filter);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "ব্যবহারকারী পাওয়া যায়নি।",
+        });
+      }
+
+      const role = (user.role || "student").toLowerCase();
+      const permissions = Array.isArray(user.permissions)
+        ? user.permissions
+        : [];
+      const isBanned = Boolean(user.isBanned || user.status === "banned");
+      const status = isBanned ? "banned" : "active";
+
+      res.status(200).json({
+        success: true,
+        user: {
+          id: user._id?.toString() || user.id,
+          _id: user._id?.toString() || user.id,
+          name: user.name || "User",
+          email: user.email || "",
+          image: user.image || "",
+          role,
+          permissions,
+          isBanned,
+          status,
+        },
+      });
+    } catch (error) {
+      console.error("GET /api/user/me error:", error);
+      res.status(500).json({
+        success: false,
+        message: "ইউজার ডাটা লোড করতে সমস্যা হয়েছে।",
+        error: error.message,
+      });
+    }
+  });
+
   return router;
 }
 

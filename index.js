@@ -23,6 +23,10 @@ const authRoutes = require("./routes/authRoutes");
 const routineRoutes = require("./routes/routineRoutes");
 const syllabusRoutes = require("./routes/syllabusRoutes");
 const resultRoutes = require("./routes/resultRoutes");
+const staffRoutes = require("./routes/staffRoutes");
+const teacherAttendanceRoutes = require("./routes/teacherAttendanceRoutes");
+const staffAttendanceRoutes = require("./routes/staffAttendanceRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 // 3. Domain Modules
 const administrationRoutes = require("./routes/administrationRoutes");
@@ -31,7 +35,7 @@ const smartClassroomRoutes = require("./routes/smartClassroomRoutes");
 const parentRoutes = require("./routes/parentRoutes");
 
 const app = express();
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 5000;
 
 // Global Middleware Configurations
 app.use(cors());
@@ -60,6 +64,10 @@ async function run() {
     app.use(routineRoutes(collections, authHelpers, database));
     app.use(syllabusRoutes(collections, authHelpers, database));
     app.use(resultRoutes(collections, authHelpers, database));
+    app.use(staffRoutes(collections, authHelpers, database));
+    app.use(teacherAttendanceRoutes(collections, authHelpers, database));
+    app.use(staffAttendanceRoutes(collections, authHelpers, database));
+    app.use(aiRoutes(collections, authHelpers, database));
 
     // Mount Existing Domain Modules
     administrationRoutes(app, database);
